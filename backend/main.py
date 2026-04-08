@@ -28,9 +28,14 @@ from employees import (
 
 app = FastAPI(title="ShiftReady API", version="1.0.0")
 
+# ALLOWED_ORIGINS env var lets production add the Vercel frontend URL.
+# Defaults to localhost dev ports.
+_default_origins = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
