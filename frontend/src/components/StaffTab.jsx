@@ -338,7 +338,7 @@ export default function StaffTab({ demoMode }) {
   const fetchRisk = async () => {
     setRiskLoading(true)
     try {
-      const res = await fetch(`/api/employees/risk?demo=${demoMode}`)
+      const res = await fetch('/api/employees/risk')
       setRisk(await res.json())
     } catch (err) {
       console.error(err)
@@ -348,7 +348,7 @@ export default function StaffTab({ demoMode }) {
   }
 
   useEffect(() => { fetchEmployees() }, [])
-  useEffect(() => { if (employees.length > 0) fetchRisk() }, [employees.length, demoMode])
+  useEffect(() => { if (employees.length > 0) fetchRisk() }, [employees.length])
 
   const handleSave = (emp) => {
     setEmployees(prev => {
@@ -402,9 +402,14 @@ export default function StaffTab({ demoMode }) {
               <div className="risk-banner-summary">{risk.summary}</div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={fetchRisk} disabled={riskLoading}>
-            {riskLoading ? '…' : '↻ Refresh'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <button className="btn btn-ghost btn-sm" onClick={fetchRisk} disabled={riskLoading}>
+              {riskLoading ? '…' : '↻ Refresh'}
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>
+              🟢 Live MTA data
+            </span>
+          </div>
         </div>
       )}
 

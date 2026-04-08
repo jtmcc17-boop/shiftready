@@ -82,12 +82,12 @@ async def health():
 
 @app.post("/briefing/generate")
 async def generate_briefing(demo: bool = Query(False)):
-    """Generate a new briefing using live (or demo) data and Claude."""
-    if demo:
-        conditions = get_demo_conditions()
-    else:
-        conditions = await get_all_conditions()
-
+    """
+    Generate a new briefing using live data and Claude.
+    The `demo` flag only marks the briefing in history — conditions are
+    always fetched live so lateness predictions reflect real transit status.
+    """
+    conditions = await get_all_conditions()
     briefing = generate_briefing_with_claude(conditions, demo=demo)
 
     # Persist to disk
@@ -125,10 +125,8 @@ async def get_briefing(briefing_id: str):
 
 
 @app.get("/conditions")
-async def get_conditions(demo: bool = Query(False)):
-    """Return raw conditions data without running Claude."""
-    if demo:
-        return get_demo_conditions()
+async def get_conditions():
+    """Return live raw conditions data (weather, transit, closures, 311)."""
     return await get_all_conditions()
 
 
@@ -144,16 +142,13 @@ async def list_employees():
 # so FastAPI doesn't try to match the literal strings "risk"/"template" as IDs.
 
 @app.get("/employees/risk")
-async def get_lateness_risk(demo: bool = Query(False)):
+async def get_lateness_risk():
     """
-    Assess lateness risk for all employees based on current transit and weather.
-    Returns per-employee risk levels and an overall summary.
+    Assess lateness risk for all employees using live transit and weather.
+    Always uses live data — predictions are based on real MTA alerts.
     """
     employees = get_all_employees()
-    if demo:
-        conditions = get_demo_conditions()
-    else:
-        conditions = await get_all_conditions()
+    conditions = await get_all_conditions()
     return assess_lateness_risk(employees, conditions)
 
 

@@ -16,10 +16,10 @@ export default function App() {
   const [staffRisk, setStaffRisk] = useState(null)
 
   // ── Fetch conditions ──────────────────────────────────────────────────────
-  const fetchConditions = useCallback(async (demo = demoMode) => {
+  const fetchConditions = useCallback(async () => {
     setConditionsLoading(true)
     try {
-      const res = await fetch(`/api/conditions?demo=${demo}`)
+      const res = await fetch('/api/conditions')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setConditions(data)
@@ -28,7 +28,7 @@ export default function App() {
     } finally {
       setConditionsLoading(false)
     }
-  }, [demoMode])
+  }, [])
 
   // ── Fetch history ─────────────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
@@ -42,28 +42,26 @@ export default function App() {
   }, [])
 
   // ── Fetch staff risk ──────────────────────────────────────────────────────
-  const fetchStaffRisk = useCallback(async (demo = demoMode) => {
+  const fetchStaffRisk = useCallback(async () => {
     try {
-      const res = await fetch(`/api/employees/risk?demo=${demo}`)
+      const res = await fetch('/api/employees/risk')
       if (!res.ok) return
       setStaffRisk(await res.json())
     } catch (err) {
       console.error('Failed to fetch staff risk:', err)
     }
-  }, [demoMode])
+  }, [])
 
   // ── On mount ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetchConditions(false)
+    fetchConditions()
     fetchHistory()
-    fetchStaffRisk(false)
+    fetchStaffRisk()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toggle demo mode ──────────────────────────────────────────────────────
   const handleToggleDemo = (isDemo) => {
     setDemoMode(isDemo)
-    fetchConditions(isDemo)
-    fetchStaffRisk(isDemo)
   }
 
   // ── Generate briefing ─────────────────────────────────────────────────────
@@ -80,7 +78,7 @@ export default function App() {
       setCurrentBriefing(briefing)
       setActiveTab('briefing')
       await fetchHistory()
-      fetchStaffRisk(demoMode)
+      fetchStaffRisk()
     } catch (err) {
       setError(err.message)
     } finally {
