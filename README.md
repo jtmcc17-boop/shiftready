@@ -4,6 +4,8 @@ An agentic daily operations briefing tool for last-mile delivery teams. Every mo
 
 The agent cross-references live NYC data sources and uses Claude to generate specific, actionable recommendations — not just a data dump.
 
+![ShiftReady — morning briefing with weather impact, transit disruptions, and staffing risks](docs/shiftready-briefing.png)
+
 ---
 
 ## What it does
@@ -75,7 +77,7 @@ The agent maps all data to five Manhattan zones:
 ### Install and run
 
 ```bash
-git clone https://github.com/jtmcc17-boop/shiftready.git
+git clone https://github.com/jtmcc99/shiftready.git
 cd shiftready
 
 cp .env.example .env
@@ -198,3 +200,9 @@ shiftready/
 ├── .gitignore
 └── start.sh
 ```
+
+---
+
+## Background
+
+Built from firsthand experience managing delivery operations where shift start was the most chaotic 30 minutes of the day. The ops manager would manually check weather, subway alerts, and staffing — often missing something critical until it was too late. ShiftReady automates that entire process and surfaces what matters in a format designed for someone who has 60 seconds before the first orders drop.
