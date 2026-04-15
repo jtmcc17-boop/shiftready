@@ -4,7 +4,9 @@ An agentic daily operations briefing tool for last-mile delivery teams. Every mo
 
 The agent cross-references live NYC data sources and uses Claude to generate specific, actionable recommendations — not just a data dump.
 
-![ShiftReady — morning briefing with weather impact, transit disruptions, and staffing risks](docs/shiftready-briefing.png)
+| Today's Briefing | Live Conditions |
+|:---:|:---:|
+| ![Briefing](docs/shiftready-briefing.png) | ![Conditions](docs/shiftready-conditions.png) |
 
 ---
 
