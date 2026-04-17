@@ -29,15 +29,21 @@ from employees import (
 
 app = FastAPI(title="ShiftReady API", version="1.0.0")
 
-# ALLOWED_ORIGINS env var lets production add the Vercel frontend URL.
-# Defaults to localhost dev ports.
-_default_origins = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+# CORS: this API is unauthenticated; browser fetches do not use cookies. Using * avoids
+# "Failed to fetch" when the Vercel URL changes (preview vs production) or ALLOWED_ORIGINS is mis-set.
+# Optional: set ALLOWED_ORIGINS to a comma-separated list to restrict (and set allow_credentials True).
+_cors_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _cors_origins_env:
+    _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    _cors_credentials = True
+else:
+    _cors_origins = ["*"]
+    _cors_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

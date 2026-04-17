@@ -10,6 +10,15 @@ function normalizeApiBase(raw) {
 
 const API_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_URL)
 
+if (import.meta.env.PROD && typeof window !== 'undefined') {
+  const v = import.meta.env.VITE_API_URL
+  if (!v || String(v).includes('localhost')) {
+    console.error(
+      '[ShiftReady] VITE_API_URL is missing or still localhost. Set it in Vercel to your Render URL and redeploy the frontend.'
+    )
+  }
+}
+
 export function apiUrl(path) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${API_BASE_URL}${normalizedPath}`

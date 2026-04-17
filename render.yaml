@@ -14,6 +14,7 @@ services:
         value: 3.11.11
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optional. Omit to allow all browser origins (demo-friendly). Set only if you want to lock CORS down.
       - key: ALLOWED_ORIGINS
         sync: false
     # Backend writes briefing history to /briefings on local disk.
