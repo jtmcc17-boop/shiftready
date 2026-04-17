@@ -3,6 +3,7 @@ import TodaysBriefing from './components/TodaysBriefing.jsx'
 import LiveConditions from './components/LiveConditions.jsx'
 import BriefingHistory from './components/BriefingHistory.jsx'
 import StaffTab from './components/StaffTab.jsx'
+import { apiUrl } from './api.js'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('briefing')
@@ -19,7 +20,7 @@ export default function App() {
   const fetchConditions = useCallback(async () => {
     setConditionsLoading(true)
     try {
-      const res = await fetch('/api/conditions')
+      const res = await fetch(apiUrl('/conditions'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setConditions(data)
@@ -33,7 +34,7 @@ export default function App() {
   // ── Fetch history ─────────────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch('/api/briefing/history')
+      const res = await fetch(apiUrl('/briefing/history'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setHistory(await res.json())
     } catch (err) {
@@ -44,7 +45,7 @@ export default function App() {
   // ── Fetch staff risk ──────────────────────────────────────────────────────
   const fetchStaffRisk = useCallback(async () => {
     try {
-      const res = await fetch('/api/employees/risk')
+      const res = await fetch(apiUrl('/employees/risk'))
       if (!res.ok) return
       setStaffRisk(await res.json())
     } catch (err) {
@@ -69,7 +70,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/briefing/generate?demo=${demoMode}`, { method: 'POST' })
+      const res = await fetch(apiUrl(`/briefing/generate?demo=${demoMode}`), { method: 'POST' })
       if (!res.ok) {
         const body = await res.text()
         throw new Error(`HTTP ${res.status}: ${body}`)
@@ -91,7 +92,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/briefing/${id}`)
+      const res = await fetch(apiUrl(`/briefing/${id}`))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const briefing = await res.json()
       setCurrentBriefing(briefing)

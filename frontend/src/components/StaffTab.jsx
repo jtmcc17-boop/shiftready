@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { apiUrl } from '../api.js'
 
 const SUBWAY_LINES = ['1','2','3','4','5','6','7','A','C','E','B','D','F','M','G','J','Z','L','N','Q','R','W','S']
 const ROLES = ['courier', 'driver', 'dispatcher', 'manager', 'supervisor']
@@ -86,7 +87,7 @@ function EmployeeModal({ employee, onSave, onClose }) {
       bus_lines: form.bus_lines.split(',').map(s => s.trim()).filter(Boolean),
     }
     try {
-      const url = employee ? `/api/employees/${employee.id}` : '/api/employees'
+      const url = employee ? apiUrl(`/employees/${employee.id}`) : apiUrl('/employees')
       const method = employee ? 'PUT' : 'POST'
       const res = await fetch(url, {
         method, headers: { 'Content-Type': 'application/json' },
@@ -226,7 +227,7 @@ function UploadModal({ onUpload, onClose }) {
     const form = new FormData()
     form.append('file', file)
     try {
-      const res = await fetch(`/api/employees/upload?overwrite=${overwrite}`, {
+      const res = await fetch(apiUrl(`/employees/upload?overwrite=${overwrite}`), {
         method: 'POST', body: form,
       })
       if (!res.ok) { const t = await res.text(); throw new Error(t) }
@@ -255,7 +256,7 @@ function UploadModal({ onUpload, onClose }) {
                 Each row becomes one employee record.
               </p>
               <a
-                href="/api/employees/template"
+                href={apiUrl('/employees/template')}
                 download="shiftready_employees_template.csv"
                 className="btn btn-ghost"
                 style={{ marginBottom: 16, display: 'inline-block' }}
@@ -313,20 +314,243 @@ function UploadModal({ onUpload, onClose }) {
   )
 }
 
-export default function StaffTab({ demoMode }) {
+function HistoricalUploadModal({ onUpload, onClose }) {
+  const [file, setFile] = useState(null)
+  const [overwrite, setOverwrite] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const inputRef = useRef()
+
+  const handleUpload = async () => {
+    if (!file) return
+    setUploading(true); setError(null)
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await fetch(apiUrl(`/employees/history/upload?overwrite=${overwrite}`), {
+        method: 'POST',
+        body: form,
+      })
+      if (!res.ok) { const t = await res.text(); throw new Error(t) }
+      const data = await res.json()
+      setResult(data)
+      onUpload(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 560 }}>
+        <div className="modal-header">
+          <h2>Upload Historical Lateness Data</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {!result ? (
+            <>
+              <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+                Upload historical shifts with clock-in outcomes and operational signals
+                (train/bus delay status, 311 volume, and weather) to train the lateness predictor.
+              </p>
+              <a
+                href={apiUrl('/employees/history/template')}
+                download="shiftready_historical_lateness_template.csv"
+                className="btn btn-ghost"
+                style={{ marginBottom: 16, display: 'inline-block' }}
+              >
+                ↓ Download Historical Template
+              </a>
+              <div
+                className="file-drop-zone"
+                onClick={() => inputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag-over') }}
+                onDragLeave={e => e.currentTarget.classList.remove('drag-over')}
+                onDrop={e => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('drag-over')
+                  const f = e.dataTransfer.files[0]
+                  if (f) setFile(f)
+                }}
+              >
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".csv,.json"
+                  style={{ display: 'none' }}
+                  onChange={e => setFile(e.target.files[0])}
+                />
+                {file
+                  ? <><div style={{ fontSize: 32 }}>📄</div><div>{file.name}</div></>
+                  : <><div style={{ fontSize: 32 }}>🧠</div><div>Click or drag historical .csv/.json here</div></>
+                }
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer' }}>
+                <input type="checkbox" checked={overwrite} onChange={e => setOverwrite(e.target.checked)} />
+                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                  Replace all historical training records
+                </span>
+              </label>
+              {error && <div className="form-error" style={{ marginTop: 12 }}>{error}</div>}
+              <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleUpload} disabled={!file || uploading}>
+                  {uploading ? 'Uploading…' : 'Upload & Train'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ fontSize: 48 }}>✅</div>
+              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+                Model trained on {result.total_records} records
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                Imported {result.uploaded} rows, skipped {result.skipped}.
+              </div>
+              {result.profile?.model_metrics?.test?.samples > 0 && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
+                  Test F1: {Math.round((result.profile.model_metrics.test.f1 || 0) * 100)}% ·
+                  Precision: {Math.round((result.profile.model_metrics.test.precision || 0) * 100)}% ·
+                  Recall: {Math.round((result.profile.model_metrics.test.recall || 0) * 100)}%
+                </div>
+              )}
+              <button className="btn btn-primary" onClick={onClose} style={{ marginTop: 16 }}>Done</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatPct(value) {
+  return `${Math.round((value || 0) * 100)}%`
+}
+
+function metricState(value) {
+  if (value >= 0.75) return 'good'
+  if (value >= 0.6) return 'ok'
+  return 'poor'
+}
+
+function ModelQualityPanel({ modelInfo }) {
+  if (!modelInfo?.historical_model_enabled) {
+    return (
+      <div className="model-quality-card">
+        <div className="model-quality-header">
+          <h3>Model Quality</h3>
+        </div>
+        <div className="model-quality-empty">
+          Upload historical data to unlock model diagnostics and quality checks.
+        </div>
+      </div>
+    )
+  }
+
+  const train = modelInfo?.metrics?.train || {}
+  const test = modelInfo?.metrics?.test || {}
+  const trainF1 = train.f1 || 0
+  const testF1 = test.f1 || 0
+  const f1Gap = Math.abs(trainF1 - testF1)
+  const trendLabel = f1Gap >= 0.12 ? 'Potential overfit' : 'Generalization stable'
+  const trendTone = f1Gap >= 0.12 ? 'poor' : 'good'
+  const featureSamples = modelInfo?.feature_samples || {}
+  const routeCoverage = modelInfo?.route_coverage || {}
+
+  const warnings = []
+  if ((modelInfo?.historical_records || 0) < 40) {
+    warnings.push('Add at least 40 historical shifts to reduce volatility.')
+  }
+  if ((test.samples || 0) < 20) {
+    warnings.push('Test split is small; evaluation metrics may be noisy.')
+  }
+  if ((routeCoverage.train_lines || 0) < 4) {
+    warnings.push('Train-line coverage is sparse; add more route-level history.')
+  }
+  if ((routeCoverage.bus_routes || 0) < 4) {
+    warnings.push('Bus-route coverage is sparse; bus effects may be underfit.')
+  }
+  if ((featureSamples.stressful_weather_samples || 0) < 10) {
+    warnings.push('Not enough severe-weather examples to trust weather signal strength.')
+  }
+
+  return (
+    <div className="model-quality-card">
+      <div className="model-quality-header">
+        <h3>Model Quality</h3>
+        <span className="model-quality-meta">{modelInfo.historical_records} records</span>
+      </div>
+
+      <div className="model-quality-grid">
+        <div className={`quality-metric quality-${metricState(testF1)}`}>
+          <div className="quality-metric-label">Test F1</div>
+          <div className="quality-metric-value">{formatPct(testF1)}</div>
+        </div>
+        <div className={`quality-metric quality-${metricState(test.precision || 0)}`}>
+          <div className="quality-metric-label">Precision</div>
+          <div className="quality-metric-value">{formatPct(test.precision || 0)}</div>
+        </div>
+        <div className={`quality-metric quality-${metricState(test.recall || 0)}`}>
+          <div className="quality-metric-label">Recall</div>
+          <div className="quality-metric-value">{formatPct(test.recall || 0)}</div>
+        </div>
+        <div className={`quality-metric quality-${trendTone}`}>
+          <div className="quality-metric-label">Train/Test Trend</div>
+          <div className="quality-metric-value" style={{ fontSize: 13 }}>
+            {trendLabel}
+          </div>
+        </div>
+      </div>
+
+      <div className="quality-subgrid">
+        <div>
+          <div className="quality-subtitle">Coverage</div>
+          <div className="quality-subline">Train lines modeled: {routeCoverage.train_lines || 0}</div>
+          <div className="quality-subline">Bus routes modeled: {routeCoverage.bus_routes || 0}</div>
+          <div className="quality-subline">Shift buckets modeled: {modelInfo.shift_bucket_coverage || 0}</div>
+        </div>
+        <div>
+          <div className="quality-subtitle">Data Balance</div>
+          <div className="quality-subline">Train samples: {train.samples || 0}</div>
+          <div className="quality-subline">Test samples: {test.samples || 0}</div>
+          <div className="quality-subline">Weather stress samples: {featureSamples.stressful_weather_samples || 0}</div>
+        </div>
+      </div>
+
+      <div className="quality-warning-block">
+        <div className="quality-subtitle">Sufficiency Checks</div>
+        {warnings.length === 0 ? (
+          <div className="quality-note-ok">Coverage and sample depth look healthy for prototype-grade decisions.</div>
+        ) : (
+          warnings.map((w, idx) => (
+            <div key={idx} className="quality-warning">⚠ {w}</div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function StaffTab({ demoMode, onRiskUpdate }) {
   const [employees, setEmployees] = useState([])
   const [risk, setRisk] = useState(null)
   const [loading, setLoading] = useState(true)
   const [riskLoading, setRiskLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
+  const [showHistoryUpload, setShowHistoryUpload] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const fetchEmployees = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/employees')
+      const res = await fetch(apiUrl('/employees'))
       setEmployees(await res.json())
     } catch (err) {
       console.error(err)
@@ -338,8 +562,10 @@ export default function StaffTab({ demoMode }) {
   const fetchRisk = async () => {
     setRiskLoading(true)
     try {
-      const res = await fetch('/api/employees/risk')
-      setRisk(await res.json())
+      const res = await fetch(apiUrl('/employees/risk'))
+      const data = await res.json()
+      setRisk(data)
+      if (onRiskUpdate) onRiskUpdate(data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -348,7 +574,7 @@ export default function StaffTab({ demoMode }) {
   }
 
   useEffect(() => { fetchEmployees() }, [])
-  useEffect(() => { if (employees.length > 0) fetchRisk() }, [employees.length])
+  useEffect(() => { fetchRisk() }, [employees.length])
 
   const handleSave = (emp) => {
     setEmployees(prev => {
@@ -361,7 +587,7 @@ export default function StaffTab({ demoMode }) {
   }
 
   const handleDelete = async (id) => {
-    await fetch(`/api/employees/${id}`, { method: 'DELETE' })
+    await fetch(apiUrl(`/employees/${id}`), { method: 'DELETE' })
     setEmployees(prev => prev.filter(e => e.id !== id))
     setDeleteConfirm(null)
     setTimeout(fetchRisk, 300)
@@ -400,6 +626,16 @@ export default function StaffTab({ demoMode }) {
                 {risk.overall_risk === 'high' ? 'Staffing Alert' : risk.overall_risk === 'moderate' ? 'Staffing Watch' : 'Staffing Normal'}
               </div>
               <div className="risk-banner-summary">{risk.summary}</div>
+              {risk.model_info?.historical_model_enabled && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Historical model active ({risk.model_info.historical_records} records)
+                </div>
+              )}
+              {risk.model_info?.metrics?.test?.samples > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Offline test F1 {Math.round((risk.model_info.metrics.test.f1 || 0) * 100)}%
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -425,11 +661,16 @@ export default function StaffTab({ demoMode }) {
           <button className="btn btn-ghost" onClick={() => setShowUpload(true)}>
             ↑ Upload CSV
           </button>
+            <button className="btn btn-ghost" onClick={() => setShowHistoryUpload(true)}>
+              🧠 Upload Historical Data
+            </button>
           <button className="btn btn-primary" onClick={() => { setEditingEmployee(null); setShowModal(true) }}>
             + Add Employee
           </button>
         </div>
       </div>
+
+      <ModelQualityPanel modelInfo={risk?.model_info} />
 
       {/* Employee list */}
       {loading ? (
@@ -529,6 +770,11 @@ export default function StaffTab({ demoMode }) {
                       </div>
                     )}
                     <div className="risk-recommendation">{r.recommendation}</div>
+                    {(r.model_signals || []).length > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Learned signals: {(r.model_signals || []).join(' · ')}
+                      </div>
+                    )}
                     {(r.phone || r.email) && (
                       <div className="contact-row">
                         {r.phone && <a href={`tel:${r.phone}`} className="contact-link">📞 {r.phone}</a>}
@@ -560,6 +806,12 @@ export default function StaffTab({ demoMode }) {
       )}
       {showUpload && (
         <UploadModal onUpload={handleUpload} onClose={() => setShowUpload(false)} />
+      )}
+      {showHistoryUpload && (
+        <HistoricalUploadModal
+          onUpload={() => setTimeout(fetchRisk, 500)}
+          onClose={() => setShowHistoryUpload(false)}
+        />
       )}
     </div>
   )
