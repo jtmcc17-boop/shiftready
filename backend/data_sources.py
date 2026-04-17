@@ -81,6 +81,13 @@ async def get_weather() -> dict:
         return _empty_weather("unavailable")
 
 
+# Open-Meteo asks for a descriptive User-Agent; helps avoid anonymous shared-IP throttling.
+_OPEN_METEO_HEADERS = {
+    **_HEADERS,
+    "User-Agent": "ShiftReady/1.0 (https://github.com/jtmcc99/shiftready; NYC ops briefing)",
+}
+
+
 async def _weather_nws() -> dict:
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         # Step 1: points lookup
@@ -193,7 +200,14 @@ async def _weather_openmeteo() -> dict:
         "&timezone=America%2FNew_York"
     )
     async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url)
+        r = await client.get(url, headers=_OPEN_METEO_HEADERS)
+        # 429/503 are common on shared hosting; degrade without treating as an exception storm.
+        if r.status_code in (429, 503, 502):
+            print(
+                f"[weather] Open-Meteo unavailable (HTTP {r.status_code}); using empty weather",
+                file=sys.stderr,
+            )
+            return _empty_weather("unavailable")
         r.raise_for_status()
         data = r.json()
 
