@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 # Load .env from project root (one level above backend/)
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
@@ -82,17 +82,52 @@ def _briefing_summary(briefing: dict, briefing_id: str) -> dict:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def root():
-    """Helpful landing for reviewers opening the API base URL in a browser."""
+async def root(request: Request, format: str | None = Query(None)):
+    """
+    Browsers get a simple HTML page; use ?format=json for the machine-readable object.
+    """
+    base = str(request.base_url).rstrip("/")
+    fe = os.getenv("FRONTEND_URL", "").strip()
     out = {
         "service": "ShiftReady API",
         "health": "/health",
         "docs": "/docs",
     }
-    fe = os.getenv("FRONTEND_URL")
     if fe:
         out["frontend_url"] = fe
-    return out
+
+    if format == "json":
+        return out
+
+    fe_link = (
+        f'<p><a href="{fe}">Open web app (frontend)</a></p>'
+        if fe
+        else "<p><em>Set FRONTEND_URL on the server to show the web app link here.</em></p>"
+    )
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ShiftReady API</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }}
+    a {{ color: #2563eb; }}
+    code {{ background: #f3f4f6; padding: 0.1rem 0.35rem; border-radius: 4px; }}
+  </style>
+</head>
+<body>
+  <h1>ShiftReady API</h1>
+  <p>This URL is the <strong>backend</strong>. The product UI is deployed separately (e.g. Vercel).</p>
+  {fe_link}
+  <ul>
+    <li><a href="{base}/docs">Interactive API docs (Swagger)</a></li>
+    <li><a href="{base}/health">Health check</a> · <a href="{base}/version">Deploy version</a></li>
+    <li><a href="{base}/?format=json">Same metadata as JSON</a></li>
+  </ul>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @app.get("/health")
